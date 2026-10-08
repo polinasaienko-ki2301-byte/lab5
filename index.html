@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Лабораторна робота №5</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 640px; margin: 20px auto; padding: 0 10px; }
+  section { border-bottom: 1px solid #ccc; padding: 15px 0 25px; }
+  h2 { font-size: 18px; }
+  .ok { color: green; } .err { color: red; }
+  input[type=text] { padding: 3px; }
+
+  .rot { display: grid; grid-template-columns: 70px 1fr 70px; grid-template-rows: 30px 360px 50px;
+         border: 1px solid #ddd; text-align: center; }
+  .rot > div { display: flex; align-items: center; justify-content: center; border: 1px solid #eee; }
+  .rot img { max-width: 100%; max-height: 100%; }
+  .rot a { cursor: pointer; color: #55a; text-decoration: underline; }
+  .rot .side { grid-row: 1 / 4; }
+
+  .cap { display: inline-block; border: 2px solid #bbb; padding: 4px; background: #fff; }
+  .cap .row { display: flex; }
+  .cap .digit { margin-right: 8px; }
+  .px { width: 6px; height: 6px; display: block; }
+  .px.on { background: red; }
+</style>
+</head>
+<body>
+
+
+
+<section>
+  <h2>Фаренгейт ↔ Цельсій</h2>
+  <div>Температура за Фаренгейтом <input type="text" id="fahr" autocomplete="off"></div>
+  <div>Температура за Цельсієм <input type="text" id="cels" autocomplete="off"></div>
+</section>
+
+
+<section>
+  <h2>Таблиця множення (введення відповіді)</h2>
+  <div id="score2"></div>
+  <button id="next2">наступне завдання</button>
+  <div><span id="task2"></span> <input type="text" id="answer2" maxlength="3" autocomplete="off">
+       <button id="check2">перевірити</button></div>
+  <div id="result2"></div>
+</section>
+
+
+<section>
+  <h2>Таблиця множення (радіокнопки)</h2>
+  <div id="score3"></div>
+  <button id="next3">наступне завдання</button>
+  <div id="task3"></div>
+  <div id="options3"></div>
+  <div id="result3"></div>
+</section>
+
+
+<section>
+  <h2>Ротатор фотографій</h2>
+  <div id="rotator"></div>
+</section>
+
+
+<section>
+  <h2>Captcha</h2>
+  <div id="captcha"></div>
+</section>
+
+<script>
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function onlyDigits(input) { input.value = input.value.replace(/\D/g, ''); }
+
+function cleanNumber(str) {
+  str = str.replace(',', '.').replace(/[^0-9.\-]/g, '');
+  const neg = str.startsWith('-');
+  str = str.replace(/-/g, '');
+  const i = str.indexOf('.');
+  if (i !== -1) str = str.slice(0, i + 1) + str.slice(i + 1).replace(/\./g, '');
+  return (neg ? '-' : '') + str;
+}
+
+function convertTemp(source, target, toCelsius) {
+  source.value = cleanNumber(source.value);
+  const v = parseFloat(source.value);
+  if (isNaN(v)) { target.value = ''; return; }  
+  const res = toCelsius ? 5 / 9 * (v - 32) : v * 9 / 5 + 32;
+  target.value = Math.round(res * 100) / 100;
+}
+
+function initTemperature() {
+  const f = document.getElementById('fahr'), c = document.getElementById('cels');
+  f.addEventListener('input', () => convertTemp(f, c, true));
+  c.addEventListener('input', () => convertTemp(c, f, false));
+}
+
+const state2 = { right: 0, total: 0, a: 0, b: 0, answered: true };
+
+function showScore(el, st) {
+  const p = st.total ? Math.round(st.right / st.total * 100) : 0;
+  el.textContent = `Загальний рахунок ${p}% (${st.right} правильних відповідей з ${st.total})`;
+}
+
+function newTask2() {
+  state2.a = randInt(2, 9); state2.b = randInt(2, 9); state2.answered = false;
+  document.getElementById('task2').textContent = `${state2.a} × ${state2.b} =`;
+  const inp = document.getElementById('answer2');
+  inp.value = ''; inp.disabled = false; inp.focus();
+  document.getElementById('check2').disabled = true;
+  document.getElementById('result2').textContent = '';
+}
+
+function checkAnswer2() {
+  const inp = document.getElementById('answer2');
+  const res = document.getElementById('result2');
+  if (state2.answered || inp.value === '') return;      
+  state2.answered = true; state2.total++;
+  const correct = state2.a * state2.b;
+  if (Number(inp.value) === correct) {
+    state2.right++; res.textContent = 'Правильно!'; res.className = 'ok';
+  } else {
+    res.textContent = `Помилка, правильна відповідь «${correct}»`; res.className = 'err';
+  }
+  inp.disabled = true; document.getElementById('check2').disabled = true;
+  showScore(document.getElementById('score2'), state2);
+}
+
+function initTask2() {
+  const inp = document.getElementById('answer2');
+  inp.addEventListener('input', () => {
+    onlyDigits(inp);
+    document.getElementById('check2').disabled = inp.value === '' || state2.answered;
+  });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') checkAnswer2(); });
+  document.getElementById('check2').addEventListener('click', checkAnswer2);
+  document.getElementById('next2').addEventListener('click', newTask2);
+  showScore(document.getElementById('score2'), state2);
+  newTask2();
+}
+
+
+const state3 = { right: 0, total: 0, correct: 0, answered: true };
+
+function generateOptions(correct) {
+  const set = new Set([correct]);
+  while (set.size < 4) set.add(randInt(2, 81));
+  const arr = Array.from(set);
+  for (let i = arr.length - 1; i > 0; i--) {            
+    const j = randInt(0, i); [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function newTask3() {
+  const a = randInt(2, 9), b = randInt(2, 9);
+  state3.correct = a * b; state3.answered = false;
+  document.getElementById('task3').textContent = `${a} × ${b} =`;
+  document.getElementById('result3').textContent = '';
+  const box = document.getElementById('options3');
+  box.innerHTML = '';
+  generateOptions(state3.correct).forEach(v => {
+    const label = document.createElement('label');
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'opt3'; radio.value = v;
+    radio.addEventListener('change', () => checkAnswer3(radio.value));
+    label.appendChild(radio);
+    label.appendChild(document.createTextNode(' ' + v));
+    box.appendChild(label);
+    box.appendChild(document.createElement('br'));
+  });
+}
+
+function checkAnswer3(value) {
+  if (state3.answered) return;                          
+  state3.answered = true; state3.total++;
+  const res = document.getElementById('result3');
+  if (Number(value) === state3.correct) {
+    state3.right++; res.textContent = 'Правильно!'; res.className = 'ok';
+  } else {
+    res.textContent = `Помилка, правильна відповідь «${state3.correct}»`; res.className = 'err';
+  }
+  document.querySelectorAll('#options3 input').forEach(r => r.disabled = true);
+  showScore(document.getElementById('score3'), state3);
+}
+
+function initTask3() {
+  document.getElementById('next3').addEventListener('click', newTask3);
+  showScore(document.getElementById('score3'), state3);
+  newTask3();
+}
+
+
+let imagesArray = [
+  { path: '001.jpg', title: 'Чикаго Буллз'},
+  { path: '002.jpg', title: 'Бостон Селтікс'},
+  { path: '003.jpg', title: 'Харківські Соколи'}
+];
+
+function initPhotoRotator(id, images) {
+  const root = document.getElementById(id);
+  let cur = 0;
+
+  const mk = (tag, parent, cls) => {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    parent.appendChild(el);
+    return el;
+  };
+
+  const wrap = mk('div', root, 'rot');
+  const left = mk('div', wrap, 'side');
+  const counter = mk('div', wrap);
+  const right = mk('div', wrap, 'side');
+  const imgCell = mk('div', wrap);
+  const caption = mk('div', wrap);
+
+  // розміщення у сітці: ліва колонка, центр, права колонка
+  left.style.gridColumn = '1'; right.style.gridColumn = '3';
+  counter.style.gridColumn = '2'; counter.style.gridRow = '1';
+  imgCell.style.gridColumn = '2'; imgCell.style.gridRow = '2';
+  caption.style.gridColumn = '2'; caption.style.gridRow = '3';
+
+  const back = mk('a', left);  back.textContent = 'Назад';
+  const next = mk('a', right); next.textContent = 'Вперед';
+  const img = mk('img', imgCell);
+  const cap = document.createElement('div');
+  caption.style.flexDirection = 'column';
+  const title = mk('b', caption);
+  const desc = mk('span', caption);
+
+
+  function show() {
+    const it = images[cur];
+    counter.textContent = `Фотографія ${cur + 1} з ${images.length}`;
+    img.src = it.path; img.alt = it.title;
+    title.textContent = it.title; desc.textContent = it.description;
+    // visibility, а не display – щоб розмітка не зміщувалась
+    back.style.visibility = cur === 0 ? 'hidden' : 'visible';
+    next.style.visibility = cur === images.length - 1 ? 'hidden' : 'visible';
+  }
+
+  back.addEventListener('click', () => { if (cur > 0) { cur--; show(); } });
+  next.addEventListener('click', () => { if (cur < images.length - 1) { cur++; show(); } });
+  show();
+}
+
+const FONT = {
+  0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111',
+  4: '101101111001001', 5: '111100111001111', 6: '111100111101111', 7: '111001001001001',
+  8: '111101111101111', 9: '111101111001111'
+};
+
+function drawDigit(parent, d) {
+  const box = document.createElement('div');
+  box.className = 'digit';
+  for (let r = 0; r < 5; r++) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    for (let c = 0; c < 3; c++) {
+      const px = document.createElement('span');
+      px.className = 'px' + (FONT[d][r * 3 + c] === '1' ? ' on' : '');
+      row.appendChild(px);
+    }
+    box.appendChild(row);
+  }
+  parent.appendChild(box);
+}
+
+function initCaptcha(count) {
+  count = parseInt(count, 10);
+  if (!(count >= 1 && count <= 10)) count = 4;          
+  const root = document.getElementById('captcha');
+  root.innerHTML = '';
+
+  let code = '';
+  for (let i = 0; i < count; i++) code += randInt(0, 9);
+
+  const label = document.createElement('div');
+  label.textContent = 'Введіть число'; label.style.marginBottom = '8px';
+  const view = document.createElement('div'); view.className = 'cap';
+  for (const ch of code) drawDigit(view, ch);
+  const input = document.createElement('input');
+  input.type = 'text'; input.maxLength = count; input.autocomplete = 'off';
+  input.style.display = 'block'; input.style.width = '120px'; input.style.marginTop = '4px';
+  const msg = document.createElement('div');
+  const reload = document.createElement('button');
+  reload.textContent = 'нова капча'; reload.style.marginTop = '6px';
+  reload.addEventListener('click', () => initCaptcha(count));
+
+  input.addEventListener('input', () => {
+    onlyDigits(input);                                  
+    if (input.value.length < count) { msg.textContent = ''; return; }
+    if (input.value === code) { msg.textContent = 'Правильно'; msg.className = 'ok'; }
+    else { msg.textContent = 'Помилка'; msg.className = 'err'; }
+  });
+
+  [label, view, input, msg, reload].forEach(el => root.appendChild(el));
+}
+
+
+initTemperature();
+initTask2();
+initTask3();
+initPhotoRotator('rotator', imagesArray);
+initCaptcha(4);
+</script>
+</body>
+</html>
